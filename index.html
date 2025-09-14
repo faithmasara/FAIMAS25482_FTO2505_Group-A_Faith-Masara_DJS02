@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Podcast Browser – No Images</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { 50:'#F7F8FF',100:'#EEF1FF',200:'#DCE3FF',300:'#BAC8FF',400:'#8AA7FF',500:'#5E88FF',600:'#3C6CF6',700:'#2E55D4',800:'#2A46A6',900:'#243B8A' }
+          },
+          boxShadow: {
+            card: '0 1px 1px rgb(0 0 0 / 0.05), 0 6px 16px rgb(0 0 0 / 0.06)'
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    :focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; }
+    .card-img { aspect-ratio: 4 / 3; }
+    .select-chevron::after { content: '▾'; position: absolute; right: .5rem; top: 50%; transform: translateY(-50%); color: #6b7280; pointer-events: none; }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-900 antialiased">
+  <!-- Header -->
+  <header class="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-gray-200">
+    <div class="mx-auto max-w-7xl h-16 px-4 sm:px-6 lg:px-8 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-brand-600 text-white text-lg">🎙️</span>
+        <span class="text-xl font-semibold">Podcast Browser</span>
+      </div>
+      <div class="hidden sm:flex items-center gap-3">
+        <button aria-label="Search" class="p-2 rounded-full hover:bg-gray-100">🔍</button>
+        <div class="h-9 w-9 rounded-full bg-gray-200 grid place-items-center">👤</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Controls -->
+  <section class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mt-6">
+    <div class="flex flex-wrap items-center gap-3 sm:gap-4">
+      <span class="text-sm font-medium text-gray-700">Filter by:</span>
+      <div class="relative select-chevron">
+        <label for="genreSelect" class="sr-only">Genre</label>
+        <select id="genreSelect" class="appearance-none h-10 min-w-[12rem] rounded-md border border-gray-300 bg-white px-3 pr-8 text-sm shadow-sm focus:border-brand-600 focus:ring-brand-600"></select>
+      </div>
+      <div class="relative select-chevron">
+        <label for="sortSelect" class="sr-only">Sort</label>
+        <select id="sortSelect" class="appearance-none h-10 min-w-[14rem] rounded-md border border-gray-300 bg-white px-3 pr-8 text-sm shadow-sm focus:border-brand-600 focus:ring-brand-600">
+          <option value="recent">Recently Updated</option>
+          <option value="popular">Most Popular</option>
+          <option value="newest">Newest</option>
+        </select>
+      </div>
+    </div>
+  </section>
+
+  <!-- Grid -->
+  <main class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
+    <div id="grid" class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"></div>
+  </main>
+
+  <!-- Modal -->
+  <div id="modalRoot" class="fixed inset-0 z-50 hidden" aria-hidden="true">
+    <div id="backdrop" class="absolute inset-0 bg-black/40"></div>
+    <div role="dialog" aria-modal="true" aria-labelledby="modalTitle" class="relative mx-auto my-8 w-[92%] max-w-4xl">
+      <div class="bg-white rounded-xl shadow-2xl">
+        <div class="flex items-center justify-between p-5 border-b border-gray-200">
+          <h2 id="modalTitle" class="text-2xl font-semibold">Podcast Title</h2>
+          <button id="closeModalTop" class="p-2 rounded-md hover:bg-gray-100" aria-label="Close">✕</button>
+        </div>
+        <div class="p-6">
+          <div class="grid gap-6 md:grid-cols-[260px,1fr]">
+            <div>
+              <!-- No-image placeholder in modal -->
+              <div id="modalCover" class="aspect-square w-full rounded-md bg-gray-200 grid place-items-center text-gray-600 text-sm">
+                Large Cover Image
+              </div>
+            </div>
+            <div class="flex flex-col gap-4">
+              <div>
+                <h3 class="font-semibold mb-2">Description</h3>
+                <p id="modalDescription" class="text-gray-700 leading-relaxed"></p>
+              </div>
+              <div>
+                <h3 class="font-semibold mb-2">Genres</h3>
+                <div id="modalGenres" class="flex flex-wrap gap-2"></div>
+              </div>
+              <div class="text-sm text-gray-600 flex items-center gap-2">
+                <span>📅</span><span id="modalUpdated"></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-8">
+            <h3 class="text-lg font-semibold mb-3">Seasons</h3>
+            <div id="modalSeasons" class="space-y-3"></div>
+          </div>
+        </div>
+        <div class="p-4 border-t border-gray-200 flex justify-end gap-2">
+          <a id="openShow"
+             href="#"
+             target="_blank" rel="noopener noreferrer"
+             class="hidden px-4 py-2 rounded-md border border-gray-300 bg-white hover:bg-gray-50 text-sm">Open Show ↗</a>
+          <button id="closeModal" class="px-4 py-2 rounded-md border border-gray-300 bg-white hover:bg-gray-50">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- App: imports data.js and wires everything -->
+  <script type="module">
+    import { podcasts as RAW_PODCASTS, genres as RAW_GENRES, seasons as RAW_SEASONS } from './data.js';
+
+    /* ---------- Utils ---------- */
+    const Utils = Object.freeze({
+      formatDate(date){ return new Date(date).toLocaleDateString(undefined,{year:'numeric',month:'long',day:'numeric'}); },
+      timeAgo(date){
+        const seconds=Math.floor((Date.now()-new Date(date).getTime())/1000);
+        const rtf=new Intl.RelativeTimeFormat(undefined,{numeric:'auto'});
+        const divs=[{amount:60,name:'second'},{amount:60,name:'minute'},{amount:24,name:'hour'},{amount:7,name:'day'},{amount:4.34524,name:'week'},{amount:12,name:'month'},{amount:Infinity,name:'year'}];
+        let d=seconds; for(const v of divs){ if(Math.abs(d)<v.amount) return rtf.format(Math.round(-d),v.name); d/=v.amount; }
+      },
+      el(tag, classes='', children=[]){ const e=document.createElement(tag); if(classes) e.className=classes; children.forEach(c=>e.append(c)); return e; },
+      pill(text){ const s=Utils.el('span','inline-flex items-center rounded-full border border-gray-300 bg-gray-50 px-2.5 py-1 text-xs text-gray-800'); s.textContent=text; return s; }
+    });
+
+    /* ---------- Map data.js -> view models ---------- */
+    const GENRE_BY_ID = new Map(RAW_GENRES.map(g => [g.id, g.title]));
+    const SEASONS_BY_ID = new Map(RAW_SEASONS.map(s => [String(s.id), s.seasonDetails || []]));
+
+    const podcasts = RAW_PODCASTS.map((p, i) => {
+      const genres = (p.genres||[]).map(id => GENRE_BY_ID.get(id)).filter(Boolean);
+      const seasonDetails = SEASONS_BY_ID.get(String(p.id)) || [];
+      const popularity = RAW_PODCASTS.length - i; // simple stable fallback
+      // safeLink: prefer explicit p.link if you add it in data.js; else fall back to image URL if you want
+      const safeLink = p.link || p.url || p.website || p.image || null;
+      return {
+        id: String(p.id),
+        title: p.title,
+        description: p.description || '',
+        genres,
+        updatedAt: p.updated,
+        seasons: seasonDetails.map(s => ({ title: s.title, episodes: s.episodes })),
+        seasonCount: seasonDetails.length || Number(p.seasons || 0),
+        popularity,
+        link: safeLink
+      };
+    });
+
+    class PodcastRepository {
+      constructor(items){ this.items = items; }
+      allGenres(){ return ['All Genres', ...new Set(this.items.flatMap(p=>p.genres))]; }
+      query({genre='All Genres', sort='recent'} = {}){
+        let out = [...this.items];
+        if(genre !== 'All Genres') out = out.filter(p => p.genres.includes(genre));
+        if(sort === 'popular') out.sort((a,b)=>b.popularity-a.popularity);
+        else out.sort((a,b)=>new Date(b.updatedAt) - new Date(a.updatedAt));
+        return out;
+      }
+      byId(id){ return this.items.find(p => p.id === String(id)); }
+    }
+
+    /* ---------- Modal Controller ---------- */
+    class ModalController{
+      constructor(root){
+        this.root=root;
+        this.backdrop=root.querySelector('#backdrop');
+        this.btnClose=root.querySelector('#closeModal');
+        this.btnCloseTop=root.querySelector('#closeModalTop');
+        this.btnOpen=root.querySelector('#openShow');
+        this.elTitle=root.querySelector('#modalTitle');
+        this.elDescription=root.querySelector('#modalDescription');
+        this.elGenres=root.querySelector('#modalGenres');
+        this.elUpdated=root.querySelector('#modalUpdated');
+        this.elSeasons=root.querySelector('#modalSeasons');
+        [this.backdrop,this.btnClose,this.btnCloseTop].forEach(b=>b.addEventListener('click',()=>this.close()));
+        document.addEventListener('keydown',e=>{ if(e.key==='Escape') this.close(); });
+      }
+      open(p){
+        this.elTitle.textContent = p.title;
+        this.elDescription.textContent = p.description;
+        this.elGenres.replaceChildren(...p.genres.map(Utils.pill));
+        this.elUpdated.textContent = `Last updated: ${Utils.formatDate(p.updatedAt)}`;
+        this.elSeasons.replaceChildren(...p.seasons.map(s=>{
+          const r=Utils.el('div','flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3');
+          const left=Utils.el('div'); left.append(
+            Utils.el('div','font-medium',[document.createTextNode(s.title)]),
+            Utils.el('div','text-sm text-gray-600',[document.createTextNode('')])
+          );
+          const right=Utils.el('div','text-sm text-gray-600',[document.createTextNode(`${s.episodes} episode${s.episodes===1?'':'s'}`)]);
+          r.append(left,right); return r;
+        }));
+
+        // show/hide external link
+        if (p.link) {
+          this.btnOpen.href = p.link;
+          this.btnOpen.classList.remove('hidden');
+        } else {
+          this.btnOpen.removeAttribute('href');
+          this.btnOpen.classList.add('hidden');
+        }
+
+        this.root.classList.remove('hidden');
+        this.root.setAttribute('aria-hidden','false');
+        this.btnCloseTop.focus();
+      }
+      close(){ this.root.classList.add('hidden'); this.root.setAttribute('aria-hidden','true'); }
+    }
+
+    /* ---------- App Controller ---------- */
+    class AppController{
+      constructor(repo){
+        this.repo=repo;
+        this.grid=document.getElementById('grid');
+        this.genreSelect=document.getElementById('genreSelect');
+        this.sortSelect=document.getElementById('sortSelect');
+        this.modal=new ModalController(document.getElementById('modalRoot'));
+        this.state={ genre:'All Genres', sort:'recent' };
+      }
+      init(){
+        this.genreSelect.replaceChildren(...this.repo.allGenres().map(g=>new Option(g,g)));
+        this.genreSelect.value=this.state.genre;
+        this.genreSelect.addEventListener('change',()=>{ this.state.genre=this.genreSelect.value; this.render(); });
+        this.sortSelect.value=this.state.sort;
+        this.sortSelect.addEventListener('change',()=>{ this.state.sort=this.sortSelect.value; this.render(); });
+        this.render();
+      }
+      render(){
+        const items=this.repo.query(this.state);
+        this.grid.replaceChildren(...items.map(p=>this.card(p)));
+      }
+      card(p){
+        const card=Utils.el('article','rounded-xl border border-gray-200 bg-white p-4 shadow-card hover:shadow-md transition-shadow cursor-pointer focus-within:ring-2 focus-within:ring-brand-600');
+        // placeholder (no image)
+        const ph=Utils.el('div','w-full card-img rounded-md bg-gray-300 grid place-items-center text-white text-sm',['Podcast Cover']);
+        // title (as link if available; still opens modal on card click)
+        let titleEl;
+        if (p.link) {
+          titleEl = Utils.el('a','mt-3 font-semibold text-gray-900 hover:underline', [document.createTextNode(p.title)]);
+          titleEl.href = p.link;
+          titleEl.target = "_blank";
+          titleEl.rel = "noopener noreferrer";
+        } else {
+          titleEl = Utils.el('h3','mt-3 font-semibold text-gray-900',[document.createTextNode(p.title)]);
+        }
+
+        const seasons=Utils.el('div','mt-1 text-sm text-gray-700 flex items-center gap-2');
+        seasons.append('📅',` ${p.seasonCount} season${p.seasonCount===1?'':'s'}`);
+        const tags=Utils.el('div','mt-2 flex flex-wrap gap-2'); p.genres.forEach(g=>tags.append(Utils.pill(g)));
+        const updated=Utils.el('div','mt-3 text-sm text-gray-600',[document.createTextNode(`Updated ${Utils.timeAgo(p.updatedAt)}`)]);
+
+        card.append(ph,titleEl,seasons,tags,updated);
+
+        // clicking card opens modal (not the link itself)
+        card.addEventListener('click', (e)=>{
+          // allow direct clicks on the title link to go out
+          if (e.target === titleEl && titleEl.tagName === 'A') return;
+          this.modal.open(p);
+        });
+        card.tabIndex=0;
+        card.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); this.modal.open(p); } });
+        return card;
+      }
+    }
+
+    // Boot
+    document.addEventListener('DOMContentLoaded',()=>{
+      const repo=new PodcastRepository(podcasts);
+      new AppController(repo).init();
+    });
+  </script>
+</body>
+</html>
